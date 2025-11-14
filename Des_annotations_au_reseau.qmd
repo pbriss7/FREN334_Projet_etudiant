@@ -1,0 +1,377 @@
+---
+title: "Des annotations (OpenRefine) au réseau (Gephi)"
+author: "Pascal Brissette"
+date: 2025-11-14
+format:
+  html:
+    toc: true
+    toc-depth: 2
+    toc-location: left
+    code-fold: true
+    code-tools: true
+    theme: Yeti
+    reference-location: margin
+    title-block-banner: true
+    self-contained: true
+    standalone: true
+editor: visual
+lang: fr
+execute:
+  freeze: auto
+  echo: true
+  warning: false
+  message: false
+---
+
+```{r, include=FALSE}
+
+# Création du répertoire où mettre les données importées depuis Recogito
+if(!dir.exists("donnees")) {dir.create("donnees")}
+
+# Création d'un répertoire où mettre les résultats
+if(!dir.exists("Resultats")) {dir.create("Resultats")}
+
+install_and_load <- function(packages) {
+  for (pkg in packages) {
+    if (!pkg %in% rownames(installed.packages())) {
+      install.packages(pkg)
+    }
+    library(pkg, character.only = TRUE)
+  }
+}
+
+pkgs <- c(
+  "data.table",
+  "tidyr",
+  "stringr",
+  "kableExtra",
+  "DT",
+  "gutenbergr",
+  "dplyr",
+  "readr",
+  "igraph",
+  "tokenizers",
+  "ggplot2"
+)
+
+install_and_load(pkgs)
+```
+
+## Contexte
+
+Au dernier atelier, vous avez annoté un roman à l'aide du logiciel Recogito. Vous avez notamment repéré les différentes manières de nommer un personnage et avez associé, à chaque variante, un nom canonique.
+
+Ensuite, vous avez exporté ces annotations sous la forme d'un fichier CSV (*comma-separated value*). Vous avez ensuite importé ce fichier dans le puissant logiciel de traitement de données [OpenRefine](https://openrefine.org/), puis avez appris à manipuler la table et à nettoyer les données. La structure de la table que vous avez produite ressemble à celle-ci:
+
+```{r}
+
+dt <- fread("donnees/Annotations_pour_dictionnaire_variantes.csv")
+
+dt |> kable()
+```
+
+## Création d'un dictionnaire des variantes
+
+Chacune des lignes de notre table constitue une annotation. L'identifiant unique est un peu long, convenons-en, et nous pourrions raccourcir celui-ci en ne retenant que les six derniers caractères. Nous allons profiter de cette opération pour mettre les noms de nos colonnes en minuscules:
+
+```{r}
+dt[, `:=`(ID = str_sub(ID, start = -7, end = -1))]
+setnames(dt, 
+         old = c("ID", "VARIANTE", "ANCHOR", "NOM_CANONIQUE", "SEXE", "ETAT"),
+         new = c("id", "variante", "anchor", "nom_canonique", "sexe", "etat"))
+
+# nrow(dt) == length(unique(dt$ID)) # Simple vérification que tous les ID sont distincts
+
+dt |> kable()
+```
+
+Nous allons maintenant créer, avec cette table, un dictionnaire associant chaque variante distincte à son nom canonique.
+
+```{r}
+# Nettoyage léger (facultatif mais recommandé)
+# -------------------------------------------------
+dt[, variante := trimws(variante)]          # retire espaces avant/après
+dt[, nom_canonique := trimws(nom_canonique)]
+
+# -------------------------------------------------
+# On ne garde que les combinaisons uniques
+# -------------------------------------------------
+dt_unique <- unique(dt[, .(nom_canonique, variante)])
+
+# -------------------------------------------------
+# 5. Agrégation : liste de variantes par nom canonique
+# -------------------------------------------------
+dict_dt <- dt_unique[, .(variante = sort(unique(variante))), 
+                     by = nom_canonique]
+
+dict_dt |> kable()
+```
+
+Notre dictionnaire est maintenant prêt à être utilisé pour compter les cooccurrences dans notre roman.
+
+## Importation et segmentation de notre texte
+
+Importons maintenant le texte du roman *Illusions perdues.*
+
+```{r}
+illusions <- readLines("donnees/Illusions_1.txt")
+illusions <- paste(illusions, collapse = " ")
+
+```
+
+Ce texte se présente actuellement comme une seule longue chaine de caractères, sans paragraphe ni saut de ligne. Pour compter les cooccurrences, nous devons le segmenter. Diverses options de segmentation se présentent à nous, mais nous allons aller au plus simple et segmenter le texte en "paragraphes" de dix phrases chacun.
+
+Ci-dessous, nous créons la fonction de segmentation.
+
+```{r}
+# -------------------------------------------------
+#  segmenter_paragraphes_par_phrase()
+# -------------------------------------------------
+#' Découpe un texte continu en paragraphes contenant un nombre fixe de phrases
+#'
+#' @param texte          Chaîne de caractères (une seule ligne ou plusieurs lignes)
+#' @param nb_phrases     Nombre de phrases à regrouper dans chaque paragraphe (>=1)
+#' @param chevauchement  Nombre de phrases partagées entre deux paragraphes adjacents (>=0, < nb_phrases)
+#' @param collapse_sep   Séparateur à utiliser entre les phrases d’un même paragraphe (défaut = " ")
+#' @return               Vecteur de caractères, chaque élément étant un « paragraphe »
+#' segmenter_paragraphes_par_phrase(txt, nb_phrases = 2, chevauchement = 1)
+#' @export
+segmenter_paragraphes_par_phrase <- function(texte,
+                                              nb_phrases = 10,
+                                              chevauchement = 0,
+                                              collapse_sep = " ") {
+  ## -----------------------------------------------------------------
+  ## 0. Vérifications de base
+  ## -----------------------------------------------------------------
+  if (!is.character(texte) || length(texte) != 1) {
+    stop("`texte` doit être une chaîne de caractères unique.")
+  }
+  if (!is.numeric(nb_phrases) || nb_phrases < 1) {
+    stop("`nb_phrases` doit être un entier >= 1.")
+  }
+  if (!is.numeric(chevauchement) || chevauchement < 0) {
+    stop("`chevauchement` doit être un entier >= 0.")
+  }
+  if (chevauchement >= nb_phrases) {
+    stop("`chevauchement` doit être strictement inférieur à `nb_phrases`.")
+  }
+
+  ## -----------------------------------------------------------------
+  ## 1. Tokenisation en phrases
+  ## -----------------------------------------------------------------
+  # Le package `tokenizers` gère la ponctuation française (.,;!?, etc.)
+  # et retourne un vecteur de phrases sans perdre les caractères de ponctuation.
+  phrases <- tokenize_sentences(texte, strip_punct = FALSE)[[1]]
+
+  total_phrases <- length(phrases)
+  if (total_phrases == 0) return(character(0))
+
+  ## -----------------------------------------------------------------
+  ## 2. Construction des indices de début / fin de chaque segment
+  ## -----------------------------------------------------------------
+  # Pas effectif entre deux segments
+  pas <- nb_phrases - chevauchement
+
+  # Positions de départ (1‑based)
+  debut_idx <- seq.int(1, total_phrases, by = pas)
+
+  # Création d'un data.table pour profiter de son efficacité
+  dt <- data.table(
+    id   = seq_len(total_phrases),
+    txt  = phrases
+  )
+
+  # Fonction interne qui extrait les phrases d'un segment donné
+  extraire_segment <- function(debut) {
+    fin <- min(debut + nb_phrases - 1L, total_phrases)
+    paste(dt[ id %between% c(debut, fin), txt ], collapse = collapse_sep)
+  }
+
+  ## -----------------------------------------------------------------
+  ## 3. Génération des paragraphes
+  ## -----------------------------------------------------------------
+  paragraphes <- vapply(debut_idx,
+                        FUN = extraire_segment,
+                        FUN.VALUE = character(1),
+                        USE.NAMES = FALSE)
+
+  return(paragraphes)
+}
+
+```
+
+Puis appliquons cette fonction au texte du roman, puis affichons, pour vérification, le premier "paragraphe" :
+
+```{r}
+roman_segmente <- segmenter_paragraphes_par_phrase(texte = illusions,
+                                                   nb_phrases = 10
+                                                   )
+
+roman_segmente[1]
+
+```
+
+Nous avons maintenant un dictionnaire de personnages et le roman correspondant, divisé en segments. La prochaine étape sera de compter les cooccurrences à l'intérieur des segments
+
+# Détection des personnages dans les segments
+
+## Fonction de détection
+
+```{r}
+
+#' Créer une table de liens (edges) pour un réseau de personnages
+#'
+#' @param segments Vecteur de caractères contenant les segments du texte
+#' @param dictionnaire data.table avec colonnes 'nom_canonique' et 'variante'
+#' @return data.table avec colonnes Source, Target et Weight (nombre de cooccurrences)
+creer_edges <- function(segments, dictionnaire) {
+  
+  # Convertir le dictionnaire en data.table si nécessaire
+  dict <- as.data.table(dictionnaire)
+  setkey(dict, variante)
+  
+  # Liste pour stocker les cooccurrences
+  cooccurrences <- list()
+  
+  # Pour chaque segment
+  for (i in seq_along(segments)) {
+    segment <- segments[i]
+    
+    # Trouver tous les personnages présents dans ce segment
+    personnages_presents <- character(0)
+    
+    for (j in 1:nrow(dict)) {
+      variante <- dict$variante[j]
+      nom_canon <- dict$nom_canonique[j]
+      
+      # Recherche de la variante dans le segment (mot entier)
+      pattern <- paste0("\\b", gsub("([.|()\\^{}+$*?]|\\[|\\])", "\\\\\\1", variante), "\\b")
+      
+      if (grepl(pattern, segment, ignore.case = FALSE)) {
+        personnages_presents <- c(personnages_presents, nom_canon)
+      }
+    }
+    
+    # Dédupliquer (un personnage peut avoir plusieurs variantes dans le même segment)
+    personnages_presents <- unique(personnages_presents)
+    
+    # Si au moins 2 personnages, créer les paires
+    if (length(personnages_presents) >= 2) {
+      # Générer toutes les combinaisons de 2 personnages
+      paires <- combn(personnages_presents, 2, simplify = FALSE)
+      
+      # Ajouter chaque paire à la liste
+      for (paire in paires) {
+        # Trier alphabétiquement pour éviter les doublons (A-B et B-A)
+        paire_triee <- sort(paire)
+        cle <- paste(paire_triee, collapse = "|||")
+        
+        if (is.null(cooccurrences[[cle]])) {
+          cooccurrences[[cle]] <- 1
+        } else {
+          cooccurrences[[cle]] <- cooccurrences[[cle]] + 1
+        }
+      }
+    }
+  }
+  
+  # Convertir en data.table
+  if (length(cooccurrences) == 0) {
+    # Aucune cooccurrence trouvée
+    edges <- data.table(Source = character(0), 
+                        Target = character(0), 
+                        Weight = integer(0))
+  } else {
+    # Extraire les noms et poids
+    noms_paires <- names(cooccurrences)
+    poids <- unlist(cooccurrences, use.names = FALSE)
+    
+    # Séparer les paires
+    paires_split <- strsplit(noms_paires, "|||", fixed = TRUE)
+    
+    edges <- data.table(
+      Source = sapply(paires_split, `[`, 1),
+      Target = sapply(paires_split, `[`, 2),
+      Weight = poids
+    )
+    
+    # Trier par poids décroissant
+    setorder(edges, -Weight)
+  }
+  
+  return(edges)
+}
+
+table_liens <- creer_edges(segments = roman_segmente, dictionnaire = dict_dt)
+
+table_liens |> kable()
+
+# Si on est satisfait du résultat, on le sauvegarde:
+fwrite(table_liens, "Resultats/table_liens.csv")
+
+```
+
+Nous allons maintenant créer la table des noeuds (sommets) pour Gephi:
+
+```{r}
+library(data.table)
+
+#' Créer une table de nœuds (nodes) pour un réseau de personnages
+#'
+#' @param edges data.table des liens créée par creer_edges()
+#' @param dictionnaire data.table avec colonnes 'nom_canonique' et 'variante'
+#' @return data.table avec colonnes Id, Label et Degree
+creer_nodes <- function(edges, dictionnaire) {
+  
+  # Extraire tous les personnages uniques des edges
+  if (nrow(edges) == 0) {
+    # Si aucun lien, utiliser tous les noms canoniques du dictionnaire
+    personnages <- unique(dictionnaire$nom_canonique)
+    degree <- rep(0L, length(personnages))
+  } else {
+    # Combiner Source et Target pour avoir tous les personnages
+    personnages <- unique(c(edges$Source, edges$Target))
+    
+    # Calculer le degré (nombre de connexions) pour chaque personnage
+    degree_source <- edges[, .(count = sum(Weight)), by = Source]
+    degree_target <- edges[, .(count = sum(Weight)), by = Target]
+    
+    setnames(degree_source, "Source", "personnage")
+    setnames(degree_target, "Target", "personnage")
+    
+    # Combiner et sommer les degrés
+    degree_total <- rbindlist(list(degree_source, degree_target))
+    degree_total <- degree_total[, .(Degree = sum(count)), by = personnage]
+    
+    # Créer un vecteur de degrés dans l'ordre des personnages
+    setkey(degree_total, personnage)
+    degree <- degree_total[personnages, Degree]
+    degree[is.na(degree)] <- 0L
+  }
+  
+  # Créer la table des nœuds
+  nodes <- data.table(
+    Id = personnages,
+    Label = personnages,
+    Degree = degree
+  )
+  
+  # Trier par degré décroissant
+  setorder(nodes, -Degree)
+  
+  return(nodes)
+}
+
+# Exemple d'utilisation complète :
+
+# nodes <- creer_nodes(edges, dictionnaire_personnages)
+
+table_noeuds <- creer_nodes(edges = table_liens, dictionnaire = dict_dt)
+
+table_noeuds |> kable()
+
+# Si on est satisfait du résultat, on le sauvegarde:
+fwrite(table_noeuds, "Resultats/table_noeuds.csv")
+```
+
+Vous avez maintenant tout ce qu'il faut pour créer un réseau de personnages dans Gephi!

@@ -1,0 +1,115 @@
+---
+title: "Exemple d'un cahier d'annotation"
+format:
+  html:
+    toc: true
+    toc-depth: 2
+    toc-location: left
+    code-fold: true
+    code-tools: true
+    theme: Yeti
+    reference-location: margin
+    title-block-banner: true
+    self-contained: true
+    standalone: true
+editor: visual
+lang: fr
+execute:
+  freeze: auto
+  echo: true
+  warning: false
+  message: false
+---
+
+## A -- Règles générales  
+
+1. **Chevauchement entre catégories**  
+   - Si un segment satisfait à **deux** critères, choisir la catégorie **la plus spécifique**.  
+   - Si l’ambiguïté persiste, créer un **code “MULTI”**.  
+
+2. **Unité d’annotation**  
+   - **Par défaut** : phrase complète.  
+   - **Exception** : lorsque la structure syntaxique (ex. : proposition subordonnée) contient le phénomène ciblé, annoter à l’échelle du **segment** (délimité par des virgules, points‑virgules ou conjonctions).  
+   - **Ne pas** découper à l’intérieur d’une phrase sans justification méthodologique pertinente.  
+
+3. **Gestion des incertitudes**  
+   - Si on hésite, apposer une étiquette telle **« INCERTITUDE »**, puis discuter de ces segments en équipe.  
+   - Ajouter un commentaire pour expliquer les **« Cas limites »**.
+
+
+---  
+
+
+## B -- Page de titre  
+
+| Élément                     | Exemple / À remplir |
+|----------------------------|----------------------|
+| **Question de recherche**  | *Ex. : « Comment le pouvoir des femmes s'exerce-t-il dans* Illusions perdues* ? »* |
+| **Hypothèse(s)**            | *Ex. : « Le pouvoir des femmes tient à la naissance (Madame de Bargeton, marquise d'Espard) ou à la beauté physique (Coralie, Ève Chardon). »* |
+| **Corpus**                 | *Ex. : Version numérique : <https://gallica.bnf.fr/ark:/12148/bpt6k5787156> (texte brut)* |
+| **Annotateur·rice(s)**      | *Nom·s, groupe, date* |
+| **Date et/ou version du cahier**       | *v1.0 – jj/mm/aaaa* |
+
+---  
+
+## C -- Catégories d'annotation  
+
+---  
+
+### 1️⃣ Nom de la catégorie  
+`[Nom court, facile à retenir]`
+
+Exemple : Pouvoir de rang ou de naissance (POU_RANG)
+
+### 2️⃣ Définition formelle  
+`[Une ou deux phrases précises qui résument la catégorie]`
+
+Exemple : 
+
+*Capacité d’une femme à influencer les actions d’autrui grâce à son statut social hérité (titre de noblesse, appartenance à un salon aristocratique, relations de cour).*
+
+### 3️⃣ Critères d’inclusion  
+- `[…]`  
+- `[…]`
+
+Exemples :
+
+- Le texte mentionne explicitement un titre nobiliaire (ex. : « marquise », « duchesse », etc.).
+- Le personnage organise ou participe à un **salon** ou à une réception où se rencontrent des figures politiques/littéraires.  
+- La présence du personnage est invoquée comme **porte d’entrée** vers le pouvoir ou la reconnaissance (ex. : « elle nous a présenté », « grâce à elle nous avons pu… »).
+
+### 4️⃣ Critères d’exclusion  
+- `[…]`  
+- `[…]`
+
+Exemples :
+
+- Simple description d’un vêtement ou d’un objet de luxe lorsqu’il n’est pas lié à un titre ou à un salon.  
+- Mention d’un titre sans que celui‑ci soit mobilisé pour influencer quelqu’un d’autre.
+
+### 5️⃣ Exemples positifs *(tirés du corpus si possible)*  
+* Les citations sont fictives*
+
+| # | Segment (extrait) | Pourquoi il est inclus |
+|---|-------------------|------------------------|
+| 1 | « La **reine d’Angoulême** tenait chaque mercredi un salon où se réunissaient les **députés** des environs. » | Titre aristocratique + salon → pouvoir de rang. |
+| 2 | « La **marquise d’Espard**, grâce à ses **entrées chez le roi**, pouvait faire **obtenir** à Lucien **le titre de ses ancêtres de Rubempré**. » | Pouvoir d’accès à la Cour = pouvoir de naissance. |
+
+
+### 6️⃣ Exemples négatifs *(cas qui ressemblent mais n’appartiennent pas)*  
+
+| # | Segment (extrait) | Pourquoi il est exclu |
+|---|-------------------|-----------------------|
+| 1 | « La marquise aimait **se promener** dans les jardins du Luxembourg. » | Activité personnelle, pas de lien avec le pouvoir. |
+| 2 | « Le **nom** de la famille d’Espard était connu de tous. » | Mention du nom sans action de pouvoir. |
+
+### 7️⃣ Cas limites & décision à prendre  
+[...]
+
+*(Ajoutez autant de cas que nécessaire.)*  
+
+---  
+
+###  **Nouvelle catégorie** *(dupliquer le bloc ci‑dessus)*  
+
+---  
