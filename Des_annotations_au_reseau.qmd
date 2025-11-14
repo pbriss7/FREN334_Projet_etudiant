@@ -42,16 +42,10 @@ install_and_load <- function(packages) {
 
 pkgs <- c(
   "data.table",
-  "tidyr",
   "stringr",
   "kableExtra",
-  "DT",
-  "gutenbergr",
   "dplyr",
-  "readr",
-  "igraph",
   "tokenizers",
-  "ggplot2"
 )
 
 install_and_load(pkgs)
@@ -82,12 +76,12 @@ Chacune des lignes de notre table constitue une annotation. L'identifiant unique
 ```{r}
 dt[, `:=`(ID = str_sub(ID, start = -7, end = -1))]
 setnames(dt, 
-         old = c("ID", "VARIANTE", "ANCHOR", "NOM_CANONIQUE", "SEXE", "ETAT"),
-         new = c("id", "variante", "anchor", "nom_canonique", "sexe", "etat"))
+         old = c("ID", "VARIANTE", "ANCHOR", "NOM_CANONIQUE"),
+         new = c("id", "variante", "anchor", "nom_canonique"))
 
 # nrow(dt) == length(unique(dt$ID)) # Simple vérification que tous les ID sont distincts
 
-dt |> kable()
+dt[, .(id, variante, anchor, nom_canonique)] |> kable()
 ```
 
 Nous allons maintenant créer, avec cette table, un dictionnaire associant chaque variante distincte à son nom canonique.
