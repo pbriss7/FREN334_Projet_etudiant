@@ -63,7 +63,12 @@ Au dernier atelier, vous avez annoté un roman à l'aide du logiciel Recogito. V
 
 Ensuite, vous avez exporté ces annotations sous la forme d'un fichier CSV (*comma-separated value*). Vous avez ensuite importé ce fichier dans le puissant logiciel de traitement de données [OpenRefine](https://openrefine.org/), puis avez appris à manipuler la table et à nettoyer les données. La structure de la table que vous avez produite ressemble à celle-ci:
 
+![](images/OpenRefine.jpg)
+
+Vous aurez ensuite exporté cette table (toujours sous la forme d'un CSV), puis l'aurez déplacé vers le dossier "donnees" de votre environnement Posit. Vous pouvez alors lire ce fichier de la manière suivante:
+
 ```{r}
+# N'oubliez pas de renommer votre fichier CSV comme suit: "Annotations_pour_dictionnaire_variantes"
 
 dt <- fread("donnees/Annotations_pour_dictionnaire_variantes.csv")
 
@@ -111,9 +116,11 @@ Notre dictionnaire est maintenant prêt à être utilisé pour compter les coocc
 
 ## Importation et segmentation de notre texte
 
-Importons maintenant le texte du roman *Illusions perdues.*
+Importons maintenant le texte du roman *Illusions perdues*. Bien sûr, il faut auparavant avoir placé votre fichier texte (ici: `Illusions_1.txt`) dans le répertoire `donnees`.
 
 ```{r}
+
+# Il faut modifier le nom du fichier ci-dessous en fonction du nom de votre propre fichier!
 illusions <- readLines("donnees/Illusions_1.txt")
 illusions <- paste(illusions, collapse = " ")
 
