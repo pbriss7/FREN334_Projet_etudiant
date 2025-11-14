@@ -376,3 +376,5 @@ fwrite(table_noeuds, "Resultats/table_noeuds.csv")
 ```
 
 Vous avez maintenant tout ce qu'il faut pour créer un réseau de personnages dans Gephi!
+
+Si vous vous travaillez dans Posit-Cloud, vous pouvez exporter vos tables de noeuds et de liens sur votre ordinateur, puis les importer dans Gephi.
